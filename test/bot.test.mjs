@@ -1580,3 +1580,42 @@ test('roundButtons off (default) strips both quick actions; on keeps them', asyn
   assert.equal(onButtons.length, 1)
   assert.equal(onButtons[0].value.op, 'continue')
 })
+
+// ------------------------------------------------ stored binding re-attach --
+
+test('a stored binding attaches when its session becomes live after startup', async () => {
+  const binds = []
+  let boundId
+  let live = false
+  const binder = {
+    getSessionId: () => boundId,
+    getAgent: () => undefined,
+    getAgentFor: id => (live ? { id } : undefined),
+    isReadOnlyView: () => false,
+    detach: async () => {},
+    async bind(id) { binds.push(id); boundId = id; return { id } },
+  }
+  const state = { lastChatId: 'oc_test', displayThink: false, boundSessionId: 'stored-1' }
+  const bot = new FeishuBot({
+    ctx: { logger: { info() {}, warn() {}, error() {} }, get: () => undefined },
+    config: { statusIntervalMs: 30000, progressIntervalMs: 60000, bodySegmentChars: 3500, backgroundPush: 'off' },
+    lark: { async sendCard() { return 'm1' }, async patchCard() { return true } },
+    binder,
+    store: { ready: async () => {}, get: () => state, async update(patch) { Object.assign(state, patch) } },
+    allowlist: new Set(),
+    now: () => 1000,
+  })
+
+  // Startup: the stored session is not live yet, so nothing is bound and every
+  // card would stay silent until the operator happened to touch the bot.
+  assert.equal(await bot.attachStoredBindingIfLive('startup'), false)
+  assert.deepEqual(binds, [])
+
+  // The desktop opens that session later — the global firehose delivers its
+  // first event, which is the moment to finish the attach.
+  live = true
+  bot.onSessionEvent({ id: 'stored-1' }, { type: 'turn/start' })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(binds, ['stored-1'])
+  assert.equal(boundId, 'stored-1')
+})

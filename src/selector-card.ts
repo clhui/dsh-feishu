@@ -168,6 +168,18 @@ export function buildSelectorCard(flow: SelectorFlowRef): Schema2Card {
   }
 }
 
+/**
+ * Terminal cards keep the caller's description. A settled card has to stay
+ * readable as a record of WHAT was decided — the approval card's tool/reason
+ * line, a resume picker's context — instead of collapsing to a bare status.
+ */
+function terminalContent(flow: SelectorFlowRef, status: string): string {
+  const description = flow.spec.description
+  return typeof description === 'string' && description !== ''
+    ? `${status}\n\n${description}`
+    : status
+}
+
 /** Terminal card: the operator picked an option (green). */
 export function buildSelectorSettledCard(flow: SelectorFlowRef, picked: SelectorOption): Schema2Card {
   const detail = picked.description === undefined || picked.description === ''
@@ -181,7 +193,7 @@ export function buildSelectorSettledCard(flow: SelectorFlowRef, picked: Selector
       subtitle: { tag: 'plain_text', content: subtitleOf(flow.spec) },
       template: 'green',
     },
-    body: { elements: [{ tag: 'markdown', content: `**${picked.label}**${detail}` }] },
+    body: { elements: [{ tag: 'markdown', content: terminalContent(flow, `**${picked.label}**${detail}`) }] },
   }
 }
 
@@ -195,7 +207,7 @@ export function buildSelectorCancelledCard(flow: SelectorFlowRef): Schema2Card {
       subtitle: { tag: 'plain_text', content: subtitleOf(flow.spec) },
       template: 'grey',
     },
-    body: { elements: [{ tag: 'markdown', content: '选择已取消，此卡片仅供留档。' }] },
+    body: { elements: [{ tag: 'markdown', content: terminalContent(flow, '选择已取消，此卡片仅供留档。') }] },
   }
 }
 
@@ -209,7 +221,7 @@ export function buildSelectorExpiredCard(flow: SelectorFlowRef): Schema2Card {
       subtitle: { tag: 'plain_text', content: subtitleOf(flow.spec) },
       template: 'grey',
     },
-    body: { elements: [{ tag: 'markdown', content: '该选择卡片已过期，如仍需要请重新发起。' }] },
+    body: { elements: [{ tag: 'markdown', content: terminalContent(flow, '该选择卡片已过期，如仍需要请重新发起。') }] },
   }
 }
 

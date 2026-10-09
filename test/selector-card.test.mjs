@@ -233,3 +233,20 @@ test('the confirm-cancel card offers 确认取消 and 返回选择, never a pick
   // No selectable options leak into the interim card.
   assert.ok(!buttons.some(b => b.value.pick !== undefined))
 })
+
+test('terminal cards keep the description so a settled card stays readable', () => {
+  const content = card => card.body.elements.map(element => element.content).join('\n')
+  const settled = buildSelectorSettledCard({ id: 'flow-1', spec: SPEC }, SPEC.options[0])
+  assert.match(content(settled), /\*\*Staging\*\*/)
+  assert.match(content(settled), /测试环境/)
+  assert.match(content(settled), /请选择要部署的环境/)
+  assert.match(content(buildSelectorCancelledCard({ id: 'flow-1', spec: SPEC })), /请选择要部署的环境/)
+  assert.match(content(buildSelectorExpiredCard({ id: 'flow-1', spec: SPEC })), /请选择要部署的环境/)
+})
+
+test('a terminal card without a description stays a single status line', () => {
+  const content = card => card.body.elements.map(element => element.content).join('\n')
+  const bare = { id: 'flow-2', spec: { title: 't', options: [] } }
+  assert.equal(content(buildSelectorCancelledCard(bare)), '选择已取消，此卡片仅供留档。')
+  assert.equal(content(buildSelectorExpiredCard(bare)), '该选择卡片已过期，如仍需要请重新发起。')
+})
