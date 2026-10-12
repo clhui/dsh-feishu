@@ -186,7 +186,7 @@ const SKILL_RESOURCE_BASE = {
 const SKILL_INVOCATION = { modelInvocable: true, userInvocable: true } as const
 
 /** Routing description; must stay identical to the SKILL.md frontmatter (asserted in tests). */
-const SKILL_DESCRIPTION = 'dsh 飞书机器人插件（@aiwayds/dsh-feishu）使用与配置指南。凡涉及飞书/Lark 接入、机器人申请/创建、手机端控制 dsh、卡片交互、后台推送，或要配置 feishu 时先读本指南：首次配置优先引导桌面 TUI 运行 /feishu-onboard（扫码一键创建应用并自动写入凭据与 operators）；手动路径见指南：cordis.patch.yml 挂载块 config: 段 12 键（mode/domain/operators/appId/appSecret/凭据 refs/statusIntervalMs/bodySegmentChars/resumeListStyle/btwContextMessages/backgroundPush）、DSH_FEISHU_* 环境变量、ask_user_question 配置向导、operators 空=配对模式（首个私聊者点卡成为管理员）、dsh-feishu-state.json 是运行态非配置。触发词：飞书、feishu、lark、机器人、operators、配对、绑定、backgroundPush。'
+const SKILL_DESCRIPTION = 'dsh 飞书机器人插件（@aiwayds/dsh-feishu）使用与配置指南。凡涉及飞书/Lark 接入、机器人申请/创建、手机端控制 dsh、卡片交互、后台推送，或要配置 feishu 时先读本指南：首次配置优先引导桌面 TUI 运行 /feishu-onboard（扫码一键创建应用并自动写入凭据与 operators）；手动路径见指南：cordis.patch.yml 挂载块 config: 段 13 键（mode/domain/operators/appId/appSecret/凭据 refs/statusIntervalMs/bodySegmentChars/resumeListStyle/btwContextMessages/backgroundPush）、DSH_FEISHU_* 环境变量、ask_user_question 配置向导、operators 空=配对模式（首个私聊者点卡成为管理员）、dsh-feishu-state.json 是运行态非配置。触发词：飞书、feishu、lark、机器人、operators、配对、绑定、backgroundPush。'
 
 const SKILL_CANDIDATE: SkillCandidate = {
   name: SKILL_PROVIDER_NAME,
