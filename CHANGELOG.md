@@ -3,7 +3,16 @@
 All notable changes to dsh-feishu are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.15.1] - 2026-10-12
+
+### Fixed
+- **The stored binding re-attaches when the session goes live after startup (#4, by @clhui).** The startup-only attach ran before the desktop opened the bound session, so the attach was skipped forever: `binder.getSessionId()` stayed undefined, which drops every card (`onSessionEvent` early-returns) and fails every claim — the phone went silent until manually poked. The logic is extracted into `attachStoredBindingIfLive()`, invoked at startup and again from the global `session/event` firehose (the stored session's first event is a reliable second chance). It binds only an already-live agent — it never resumes, so it cannot occupy the registry ahead of the desktop — and guards re-entry with `storedAttachInFlight`.
+- **The settled selector card keeps the caller-supplied description (#4, by @clhui).** A decided approval card no longer collapses to a bare status row: the "what was decided and why" line survives.
+
+Both fixes came from real-device testing (Windows + dsh 0.2.0-rc.2 + the Feishu mobile client) and ship with tests; verified locally with build, typecheck, the full unit suite, and the real-host boot smoke.
+
+## [0.15.0] - 2026-09-29
+
 
 ### Changed
 - **dsh 0.2.0-rc.2 compatibility.** Host floor raised to `@deepseek-ai/dsh-skill >=0.2.0-rc.2` (devDeps pinned `0.2.0-rc.2`). 0.2.0 is a digestion wave for this plugin — every host surface it rides (message block types, the approval/request waterfalls, user-questions, image offload, `SessionAlreadyOwnedError`) breaks nothing here, and the new optional `AskUserQuestionRequestEvent.wait` field is pure additive (compile-safe; an ask-card countdown UI on `wait.timed` is a possible follow-up, not in this release). Verified: typecheck + full unit suite + the 13-scenario web-profile compat e2e against the real 0.2.0-rc.2 host.
