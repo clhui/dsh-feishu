@@ -21,6 +21,10 @@ All notable changes to dsh-feishu are documented here. The format follows
   when a remote resume fails this way, start a new session (`/new`).
 - **Plugin Manager metadata.** Added `icon.svg` and `locale/{en,zh}.json` (`meta.title`/`meta.description` per the official `readPluginMeta` contract); `package.json` now declares the `icon` and ships both in the tarball.
 
+### Fixed
+- **The stored binding is re-attached once its session is live.** A session the desktop opens *after* the plugin started is not live at `start()`, so the restore was skipped, `binder.getSessionId()` stayed undefined, and the phone went silent — no round cards, no narration cards, and every claim false — until the operator happened to touch the bot. The global `session/event` firehose now finishes that attach; it never resumes (it only binds an agent that already exists), and both entry points share one `attachStoredBindingIfLive` path.
+- **Settled selection cards keep the caller's description.** `buildSelectorSettledCard`, `buildSelectorCancelledCard` and `buildSelectorExpiredCard` collapsed to a bare status line, so a decided card no longer showed *what* was decided — the approval card lost its `工具 …：理由` line the moment it settled. All three now render the status followed by `spec.description`.
+
 ## [0.13.1] - 2026-09-19
 
 ### Fixed

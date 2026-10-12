@@ -465,23 +465,51 @@ export class FeishuBot {
     // but cold id stays in the store only — the lazy resume happens on the
     // operator's first interaction, because an eager resume at startup would
     // occupy the registry and could block the TUI from resuming that session.
+    const storedId = this.store.get().boundSessionId
+    if (storedId !== undefined && this.binder.getAgentFor(storedId) === undefined) {
+      this.ctx.logger.info('dsh-feishu: stored binding %s is not live — will resume on first use', storedId)
+    }
+    await this.attachStoredBindingIfLive('startup')
+  }
+
+  /**
+   * Attach the stored binding when its session is ALREADY live — never resume.
+   *
+   * Runs at startup and again from the firehose. A session the desktop opens
+   * after this plugin started is not live at startup time, so the attach was
+   * skipped and the phone went silent: `binder.getSessionId()` stays undefined,
+   * which drops every card (`onSessionEvent` returns early) and makes every
+   * claim false. `session/event` is a global subscription, so the stored
+   * session's first event is a reliable second chance to finish the attach.
+   *
+   * @param reason - what triggered the attempt (log only).
+   * @returns whether a live agent was found and bound.
+   */
+  private async attachStoredBindingIfLive(reason: string): Promise<boolean> {
+    if (this.storedAttachInFlight) return false
+    if (this.binder.getSessionId() !== undefined) return false
     const bound = this.store.get().boundSessionId
-    if (bound !== undefined) {
-      const live = this.binder.getAgentFor(bound)
-      if (live !== undefined) {
-        try {
-          await this.binder.bind(bound)
-          void this.learnPreset(bound)
-          this.backfillRoute()
-          this.maybeOpenCardForRunningAgent()
-        } catch (error) {
-          this.ctx.logger.warn('dsh-feishu: stored binding %s attach failed: %o', bound, error)
-        }
-      } else if (this.store.get().boundSessionId !== undefined) {
-        this.ctx.logger.info('dsh-feishu: stored binding %s is not live — will resume on first use', bound)
+    if (bound === undefined || this.binder.getAgentFor(bound) === undefined) return false
+    this.storedAttachInFlight = true
+    try {
+      await this.binder.bind(bound)
+      void this.learnPreset(bound)
+      this.backfillRoute()
+      this.maybeOpenCardForRunningAgent()
+      if (reason !== 'startup') {
+        this.ctx.logger.info('dsh-feishu: attached the stored binding %s (%s)', bound, reason)
       }
+      return true
+    } catch (error) {
+      this.ctx.logger.warn('dsh-feishu: stored binding %s attach failed (%s): %o', bound, reason, error)
+      return false
+    } finally {
+      this.storedAttachInFlight = false
     }
   }
+
+  /** One stored-binding attach in flight; the firehose may fire many events. */
+  private storedAttachInFlight = false
 
   private readonly cleanupFns: Array<() => void> = []
 
@@ -1673,6 +1701,13 @@ export class FeishuBot {
   private onSessionEvent(session: Session, event: SessionEvent): void {
     if (this.disposed) return
     const sessionId = String(session.id)
+    // The stored session may have become live only now (the desktop opened it
+    // after this plugin started). Finish the attach before the pipeline reads
+    // the binding below — while unbound this event is otherwise dropped and the
+    // phone stays silent until the operator happens to touch the bot.
+    if (this.binder.getSessionId() === undefined && this.store.get().boundSessionId === sessionId) {
+      void this.attachStoredBindingIfLive('session became live')
+    }
     const boundId = this.binder.getSessionId()
     if (boundId !== undefined && sessionId === boundId) {
       foldBoundEvent(this.runState, event)
