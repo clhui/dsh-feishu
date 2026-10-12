@@ -287,6 +287,7 @@ export class FeishuBot {
   constructor(deps: BotDeps) {
     this.ctx = deps.ctx
     this.config = deps.config
+    this.runState.toolDetail = deps.config.toolDetail
     this.lark = deps.lark
     this.binder = deps.binder
     this.store = deps.store
@@ -2064,7 +2065,7 @@ export class FeishuBot {
 
   /** Clear the run view (new binding / detach) — no history replay. */
   private resetRunView(): void {
-    const fresh = initialRunState()
+    const fresh = initialRunState(this.config.toolDetail)
     Object.assign(this.runState, fresh)
     this.runState.subagents = fresh.subagents
     this.runState.runSeqToChild = fresh.runSeqToChild

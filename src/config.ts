@@ -69,6 +69,14 @@ export interface Config {
    * asks for a confirmation). Override: DSH_FEISHU_ROUND_BUTTONS.
    */
   roundButtons?: 'on' | 'off'
+  /**
+   * Surface tool arguments on the round card's activity section (default
+   * `off`, which keeps today's output byte-for-byte). `brief` shows a
+   * whitespace-folded, clipped single-line digest of the raw arguments JSON;
+   * `full` keeps the multi-line shape, clipped at a larger budget.
+   * Override: DSH_FEISHU_TOOL_DETAIL.
+   */
+  toolDetail?: 'off' | 'brief' | 'full'
 }
 
 /** Runtime schema for {@link Config} (cordis validates the patch config with it). */
@@ -86,6 +94,7 @@ export const Config = z.object({
   btwContextMessages: z.number().min(0).max(50).step(1).default(6),
   backgroundPush: z.union([z.const('off'), z.const('cron'), z.const('all')]).default('off'),
   roundButtons: z.union([z.const('on'), z.const('off')]).default('off'),
+  toolDetail: z.union([z.const('off'), z.const('brief'), z.const('full')]).default('off'),
 }) as unknown as z<Config>
 
 /** Fully resolved, immutable runtime configuration. */
@@ -103,12 +112,13 @@ export interface ResolvedConfig {
   readonly btwContextMessages: number
   readonly backgroundPush: 'off' | 'cron' | 'all'
   readonly roundButtons: 'on' | 'off'
+  readonly toolDetail: 'off' | 'brief' | 'full'
 }
 
 const CONFIG_KEYS: ReadonlySet<string> = new Set([
   'mode', 'domain', 'operators', 'appId', 'appSecret', 'appIdRef', 'appSecretRef',
   'statusIntervalMs', 'bodySegmentChars', 'resumeListStyle', 'btwContextMessages',
-  'backgroundPush', 'roundButtons',
+  'backgroundPush', 'roundButtons', 'toolDetail',
 ])
 
 function envString(env: NodeJS.ProcessEnv, key: string): string | undefined {
@@ -151,6 +161,13 @@ export function resolveConfig(config: Config | undefined, env: NodeJS.ProcessEnv
   const envRoundButtons = envString(env, 'DSH_FEISHU_ROUND_BUTTONS')
   const buttonsValue = config?.roundButtons ?? (envRoundButtons === 'on' || envRoundButtons === 'off' ? envRoundButtons : undefined)
   const roundButtons = buttonsValue === 'on' ? 'on' : 'off'
+  const envToolDetail = envString(env, 'DSH_FEISHU_TOOL_DETAIL')
+  const toolDetailValue = config?.toolDetail
+    ?? (envToolDetail === 'off' || envToolDetail === 'brief' || envToolDetail === 'full' ? envToolDetail : undefined)
+  if (toolDetailValue !== undefined && toolDetailValue !== 'off' && toolDetailValue !== 'brief' && toolDetailValue !== 'full') {
+    throw new Error('dsh-feishu: toolDetail must be one of "off", "brief", "full"')
+  }
+  const toolDetail = toolDetailValue ?? 'off'
   const configAppId = config?.appId?.trim()
   const configAppSecret = config?.appSecret?.trim()
   // DSH_FEISHU_OPERATORS (comma-separated open_ids) EXTENDS the config list —
@@ -188,5 +205,6 @@ export function resolveConfig(config: Config | undefined, env: NodeJS.ProcessEnv
     btwContextMessages: btwConfigValue ?? 6,
     backgroundPush,
     roundButtons,
+    toolDetail,
   })
 }

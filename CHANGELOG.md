@@ -3,6 +3,11 @@
 All notable changes to dsh-feishu are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.0] - 2026-10-12
+
+### Added
+- **`toolDetail` — surface tool arguments on the round card's activity section (#3, proposal by @clhui).** `foldBoundEvent`'s `tool/call` branch kept only the tool name and discarded the raw `arguments` JSON the host delivers on the same event. The new config key (`off | brief | full`, default `off` — byte-for-byte identical to today's output) plus the `DSH_FEISHU_TOOL_DETAIL` env override control the digest: `brief` folds the JSON to one clipped line (80 chars) under the tool's bullet; `full` keeps the multi-line shape, clipped at 600 chars. The key is registered in `CONFIG_KEYS` (the strict unknown-key check keeps guarding typos) and documented in README + the `-config` skill. Verified: typecheck, the full unit suite (new `test/tool-detail.test.mjs` covers the resolver, both digest modes, the empty-arguments edge, and the rendered card), and the real-host boot smoke.
+
 ## [0.15.1] - 2026-10-12
 
 ### Fixed

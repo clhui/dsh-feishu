@@ -214,6 +214,13 @@ function activityItems(state: RunState, now: number, displayThink: boolean, omit
   const items: string[] = []
   for (const row of state.toolHistory.slice(-TOOL_ITEMS)) {
     items.push(`- 🔧 ${row.name} · ${row.ok ? '✔' : '✘'} ${formatDuration(row.durationMs)}`)
+    // toolDetail digest (config `toolDetail: brief | full`): indented under
+    // the tool's own bullet so markdown keeps it inside the list item.
+    if (row.detail !== undefined) {
+      for (const line of row.detail.split('\n')) {
+        items.push(`  ⮡ ${line}`)
+      }
+    }
   }
   if (state.retries > 0) {
     items.push(`- ↻ retry ${state.retries}${state.maxRetries !== undefined ? `/${state.maxRetries}` : ''}`)

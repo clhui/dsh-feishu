@@ -19,7 +19,7 @@
  */
 
 import type { SessionEvent } from './dsh-events.ts'
-import { lastNonBlankLine, textOfContent } from './text.ts'
+import { clipLine, foldLine, lastNonBlankLine, textOfContent, truncateBody } from './text.ts'
 
 /** Cap on remembered settled-tool rows (the card shows the last few). */
 export const TOOL_HISTORY_CAP = 8
@@ -30,11 +30,24 @@ const REASONING_CAP = 8192
 /** Cap on the in-flight text buffer (streaming tail display only). */
 const TEXT_CAP = 8192
 
+/** How much of a tool call's raw arguments the round card surfaces. */
+export type ToolDetail = 'off' | 'brief' | 'full'
+
+/** Clips for the tool-detail digests (`tool/call`'s raw `arguments` JSON). */
+const ARGS_BRIEF_CLIP = 80
+const ARGS_FULL_CLIP = 600
+
 /** One settled tool for the status line (`✔ bash 1.2s`). */
 export interface ToolSettledRow {
   readonly name: string
   readonly ok: boolean
   readonly durationMs: number
+  /**
+   * Arguments digest per the config's `toolDetail` mode — a whitespace-folded
+   * clipped line (`brief`) or the multi-line raw JSON, clipped (`full`).
+   * Undefined under `off` (the historical byte-for-byte rows).
+   */
+  readonly detail?: string
 }
 
 /** One tracked subagent child (compact row on the status card). */
@@ -92,10 +105,16 @@ export interface RunState {
   /** In-flight text deltas of the round's growing message (capped) — streaming tail. */
   textBuffer: string
   /** Pending tool (between tool/call and tool/result). */
-  currentTool: { name: string; startedAt: number } | undefined
+  currentTool: { name: string; startedAt: number; args?: string } | undefined
   toolsDone: number
   toolsFailed: number
   toolHistory: ToolSettledRow[]
+  /**
+   * How much of each tool call's raw arguments the card surfaces (the
+   * config's `toolDetail`, fixed at bot construction — static config, never
+   * mutated at runtime). `off` keeps the digest unset everywhere.
+   */
+  toolDetail: ToolDetail
   /** Latest todo/write snapshot; cleared on turn/start (TUI semantics). */
   todo: readonly { content: string; status: string }[] | undefined
   /** Tracked subagent children keyed by child session id. */
@@ -138,7 +157,7 @@ export interface RunState {
 }
 
 /** Fresh state (no turn observed). */
-export function initialRunState(): RunState {
+export function initialRunState(toolDetail: ToolDetail = 'off'): RunState {
   return {
     running: false,
     turnStartedAt: undefined,
@@ -159,6 +178,7 @@ export function initialRunState(): RunState {
     toolsDone: 0,
     toolsFailed: 0,
     toolHistory: [],
+    toolDetail,
     todo: undefined,
     subagents: new Map(),
     runSeqToChild: new Map(),
@@ -473,9 +493,21 @@ export function foldBoundEvent(state: RunState, event: SessionEvent): RunState {
       break
     }
     case 'tool/call': {
-      const name = rec(event.data).name
+      const data = rec(event.data)
+      const name = data.name
       if (name !== undefined && name !== '') {
-        state.currentTool = { name, startedAt: event.time }
+        // Digest the raw arguments JSON per the toolDetail mode. `off` keeps
+        // the digest unset — the historical byte-for-byte rows. `brief` folds
+        // the JSON to one clipped line; `full` keeps the multi-line shape at
+        // a larger clip. The `arguments` field is the model's verbatim JSON
+        // string (dsh-session's tool/call contract).
+        const raw = typeof data.arguments === 'string' ? data.arguments : ''
+        const digest = state.toolDetail === 'brief'
+          ? clipLine(foldLine(raw), ARGS_BRIEF_CLIP)
+          : state.toolDetail === 'full'
+            ? truncateBody(raw, ARGS_FULL_CLIP)
+            : undefined
+        state.currentTool = { name, startedAt: event.time, args: digest === '' ? undefined : digest }
         state.thinkingSince = undefined
       }
       break
@@ -484,7 +516,9 @@ export function foldBoundEvent(state: RunState, event: SessionEvent): RunState {
       const pending = state.currentTool
       if (pending !== undefined) {
         const ok = !toolResultFailed(event.data)
-        const row: ToolSettledRow = { name: pending.name, ok, durationMs: Math.max(0, event.time - pending.startedAt) }
+        const row: ToolSettledRow = pending.args !== undefined
+          ? { name: pending.name, ok, durationMs: Math.max(0, event.time - pending.startedAt), detail: pending.args }
+          : { name: pending.name, ok, durationMs: Math.max(0, event.time - pending.startedAt) }
         if (ok) state.toolsDone += 1
         else state.toolsFailed += 1
         state.toolHistory.push(row)
